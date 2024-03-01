@@ -33,6 +33,7 @@ import software.amazon.awscdk.services.lambda.*;
 import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.s3.Bucket;
+import software.amazon.awscdk.services.s3.BucketAccessControl;
 import software.amazon.awscdk.services.s3.deployment.BucketDeployment;
 import software.amazon.awscdk.services.s3.deployment.Source;
 import software.amazon.awscdk.services.ssm.ParameterTier;
@@ -52,7 +53,7 @@ public class SingleUseSignedUrlStack extends Stack {
 
     public SingleUseSignedUrlStack(final Construct scope, final String id, final StackProps props) throws FileNotFoundException, InvalidParameterException {
         super(scope, id, props);
-        String uuid = getShortenedUUID();
+        String uuid = getShortenedUUID(id);
         outputRegionFile();
 
         Table fileKeyTable = createFileKeyTable(uuid, "singleusesignedurl-activekeys-" + uuid);
@@ -96,7 +97,7 @@ public class SingleUseSignedUrlStack extends Stack {
 
     private Function createCreateSignedURLHandlerFunction(String uuid, PolicyStatement secretValuePolicy, PolicyStatement getParameterPolicy, Table fileKeyTable) {
         Function createSignedURLHandler = Function.Builder.create(this, "CreateSignedURL" + uuid)
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_16_X)
                 .functionName("CreateSignedURL" + uuid)
                 .handler("CreateSignedURL.handler")
                 .code(Code.fromAsset("lambda"))
@@ -118,7 +119,7 @@ public class SingleUseSignedUrlStack extends Stack {
                 .build();
 
         CfnOutput.Builder.create(this, "CreateSignedURL-Output")
-                .exportName("CreateSignedURLEndpoint")
+                .exportName("CreateSignedURLEndpoint" + uuid)
                 .value(createSignedURLApi.getUrl() + "CreateSignedURL" + uuid)
                 .build();
         return createSignedURLApi;
@@ -126,7 +127,7 @@ public class SingleUseSignedUrlStack extends Stack {
 
     private Version createcloudFrontViewRequestHandlerFunction(String uuid, PolicyStatement secretValuePolicy, PolicyStatement getParameterPolicy, Table fileKeyTable) {
         Function cloudFrontViewRequestHandler = Function.Builder.create(this, "CloudFrontViewRequest" + uuid)
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_16_X)
                 .functionName("CloudFrontViewRequest" + uuid)
                 .handler("CloudFrontViewRequest.handler")
                 .code(Code.fromAsset("lambda"))
@@ -137,6 +138,7 @@ public class SingleUseSignedUrlStack extends Stack {
 
         Version cloudFrontViewRequestHandlerV1 = Version.Builder.create(this, "A" + uuid)
                 .lambda(cloudFrontViewRequestHandler)
+                
                 .build();
 
         fileKeyTable.grantReadWriteData(cloudFrontViewRequestHandler);
@@ -144,12 +146,15 @@ public class SingleUseSignedUrlStack extends Stack {
     }
 
     private Bucket createCloudFrontLogBucket(String uuid) {
+        
         Bucket cfLogsBucket = Bucket.Builder.create(this, "singleusesignedurl-cf-logs" + uuid)
                 .bucketName("singleusesignedurl-cf-logs-" + uuid)
-                .removalPolicy(RemovalPolicy.RETAIN)
+                .accessControl(BucketAccessControl.LOG_DELIVERY_WRITE)
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .autoDeleteObjects(true)
                 .build();
         CfnOutput.Builder.create(this, "singleusesignedurl-cf-logs-output" + uuid)
-                .exportName("singleusesignedurl-cf-logs")
+                .exportName("singleusesignedurl-cf-logs" + uuid)
                 .value(cfLogsBucket.getBucketName())
                 .build();
         return cfLogsBucket;
@@ -158,10 +163,11 @@ public class SingleUseSignedUrlStack extends Stack {
     private Bucket createFilesBucket(String uuid, String s3FileBucketName) {
         Bucket filesBucket = Bucket.Builder.create(this, "singleusesignedurl-files-bucket" + uuid)
                 .bucketName(s3FileBucketName)
-                .removalPolicy(RemovalPolicy.RETAIN)
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .autoDeleteObjects(true)
                 .build();
         CfnOutput.Builder.create(this, "singleusesignedurl-files-bucket-output" + uuid)
-                .exportName("singleusesignedurl-files-bucket")
+                .exportName("singleusesignedurl-files-bucket" + uuid)
                 .value(filesBucket.getBucketName())
                 .build();
         BucketDeployment.Builder.create(this, "DeployTestFiles" + uuid)
@@ -186,9 +192,12 @@ public class SingleUseSignedUrlStack extends Stack {
                 .eventType(LambdaEdgeEventType.VIEWER_REQUEST)
                 .build();
 
+        String keyGroupId = (String) this.getNode().tryGetContext("CFKeyGroupId");
+        IKeyGroup keyGroup = KeyGroup.fromKeyGroupId(this, "keyGroupId" + uuid, keyGroupId);
         Behavior distroBehavior = Behavior.builder()
                 .allowedMethods(CloudFrontAllowedMethods.GET_HEAD)
                 .isDefaultBehavior(true)
+                .trustedKeyGroups(List.<IKeyGroup>of(keyGroup))
                 .lambdaFunctionAssociations(Collections.singletonList(lambdaFunctionAssociation))
                 .build();
         OriginAccessIdentity oadIdentity = OriginAccessIdentity.Builder.create(this, "OAI").build();
@@ -210,7 +219,7 @@ public class SingleUseSignedUrlStack extends Stack {
                 .build();
 
         CfnOutput.Builder.create(this, "singleusesignedurl-domain")
-                .exportName("singleusesignedurl-domain")
+                .exportName("singleusesignedurl-domain" + uuid)
                 .value(cloudFrontWebDistribution.getDistributionDomainName())
                 .build();
 
@@ -272,6 +281,14 @@ public class SingleUseSignedUrlStack extends Stack {
         } else {
             throw new InvalidParameterException("Missing UUID in cdk.json: " + (uuidObj == null ? "null" : uuidObj.toString()));
         }
+    }
+
+    public String getShortenedUUID(String uuid) throws FileNotFoundException, InvalidParameterException {
+
+        try (PrintStream out = new PrintStream(new FileOutputStream("./lambda/uuid.txt"))) {
+            out.print(uuid);
+        }
+        return uuid;
     }
 
     // Using a region file to the lack of being able to use environment variables with CloudFront Lambda functions

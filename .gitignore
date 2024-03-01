@@ -9,8 +9,10 @@ target
 .DS_Store
 lambda/uuid.txt
 lambda/region.txt
+temp
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
-
+cdk.privatekey.json
+cdk.sample.json

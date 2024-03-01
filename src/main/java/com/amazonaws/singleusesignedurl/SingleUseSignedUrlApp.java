@@ -19,14 +19,22 @@
 package com.amazonaws.singleusesignedurl;
 
 import software.amazon.awscdk.App;
+import software.amazon.awscdk.Stack;
+import software.amazon.awscdk.StackProps;
 
 import java.io.FileNotFoundException;
+import java.util.UUID;
 
 public class SingleUseSignedUrlApp {
     public static void main(final String[] args) throws FileNotFoundException {
         App app = new App();
+        
+        String stackSecretNameUUId = (String) app.getNode().tryGetContext("stackId");
+//        String uuid = UUID.randomUUID().toString().replace("-", "");
+//        String eightUUID = uuid.substring(0, Math.min(uuid.length(), 8));
+//        new SingleUseSignedUrlStack(app, stackSecretNameId + "-" + eightUUID);
+        new SingleUseSignedUrlStack(app, stackSecretNameUUId);
 
-        new SingleUseSignedUrlStack(app, "SingleUseSignedUrlStack");
 
         app.synth();
     }

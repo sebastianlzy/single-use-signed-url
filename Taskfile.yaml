@@ -1,0 +1,9 @@
+version: '3'
+
+tasks:
+  cdk-synth:
+    cmds:
+      - cdk synth
+  cdk-deploy:
+    cmds:
+      - cdk deploy --require-approval never  
