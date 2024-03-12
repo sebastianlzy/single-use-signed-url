@@ -20,18 +20,20 @@ If the identifier is not found the system will perform a 302 redirect to a speci
    2. Click **Open**
 5. In terminal,
 
-```shell
-# Download code repository
-git clone https://github.com/sebastianlzy/single-use-signed-url
-cd single-use-signed-url
+   ```shell
+   # Download code repository
+   git clone https://github.com/sebastianlzy/single-use-signed-url
+   cd single-use-signed-url
+   
+   # Setting repo for mvn
+   sudo wget https://repos.fedorapeople.org/repos/dchen/apache-maven/epel-apache-maven.repo -O /etc/yum.repos.d/epel-apache-maven.repo
+   sudo sed -i s/\$releasever/6/g /etc/yum.repos.d/epel-apache-maven.repo
+   ```
 
-# Installing mvn
-sudo wget https://repos.fedorapeople.org/repos/dchen/apache-maven/epel-apache-maven.repo -O /etc/yum.repos.d/epel-apache-maven.repo
-sudo sed -i s/\$releasever/6/g /etc/yum.repos.d/epel-apache-maven.repo
-sudo yum install -y apache-maven
-
-```
-
+   Install mvn
+   ```
+   sudo yum install -y apache-maven
+   ```
 
 ### Step 2: Create cloudfront key group
 #### Creating key pair
