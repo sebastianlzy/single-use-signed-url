@@ -18,3 +18,4 @@ cdk.privatekey.json
 cdk.sample.json
 *node_modules*
 *build*
+.env
