@@ -39,6 +39,8 @@ import software.amazon.awscdk.services.s3.deployment.Source;
 import software.amazon.awscdk.services.ssm.ParameterTier;
 import software.amazon.awscdk.services.ssm.StringParameter;
 import software.constructs.Construct;
+import software.amazon.awscdk.services.ecr.assets.*;
+import software.amazon.awscdk.services.apprunner.alpha.*;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -60,7 +62,8 @@ public class SingleUseSignedUrlStack extends Stack {
         PolicyStatement secretValuePolicy = createGetSecretValuePolicyStatement();
         PolicyStatement getParameterPolicy = createGetParametersPolicyStatement(uuid);
         Function createSignedURLHandler = createCreateSignedURLHandlerFunction(uuid, secretValuePolicy, getParameterPolicy, fileKeyTable);
-
+        Service createAppRunnerApplication = createAppRunnerApplication(uuid, secretValuePolicy, getParameterPolicy, fileKeyTable);
+        
         Version cloudFrontViewRequestHandlerV1 = createcloudFrontViewRequestHandlerFunction(uuid, secretValuePolicy, getParameterPolicy, fileKeyTable);
         Bucket cfLogsBucket = createCloudFrontLogBucket(uuid);
         Bucket filesBucket = createFilesBucket(uuid, "singleusesignedurl-files-" + uuid);
@@ -70,6 +73,33 @@ public class SingleUseSignedUrlStack extends Stack {
         createParameters(uuid, fileKeyTable, createSignedURLApi, cloudFrontWebDistribution);
     }
 
+    private software.amazon.awscdk.services.apprunner.alpha.Service createAppRunnerApplication(String uuid, PolicyStatement secretValuePolicy, PolicyStatement getParameterPolicy, Table fileKeyTable) {
+        DockerImageAsset imageAsset = DockerImageAsset.Builder.create(this, "ImageAssets")
+                .directory("applications")
+                .platform(Platform.LINUX_AMD64)
+                .build();
+
+        Service AppRunnerService = Service.Builder.create(this, "Service")
+                .source(software.amazon.awscdk.services.apprunner.alpha.Source.fromAsset(AssetProps.builder()
+                        .imageConfiguration(ImageConfiguration.builder().port(8080).build())
+                        .asset(imageAsset)
+                        .build()))
+                .autoDeploymentsEnabled(true)
+                .build();
+        
+        AppRunnerService.addToRolePolicy(secretValuePolicy);
+        AppRunnerService.addToRolePolicy(getParameterPolicy);
+        fileKeyTable.grantReadWriteData(AppRunnerService);
+
+        CfnOutput.Builder.create(this, "AppRunnerServiceEndpoint-Output")
+                .exportName("AppRunnerServiceEndpoint" + uuid)
+                .value("https://" + AppRunnerService.getServiceUrl())
+                .build();
+
+        return AppRunnerService;
+        
+    }
+    
     private Table createFileKeyTable(String uuid, String activekeysTableName) {
         return Table.Builder.create(this, "activekeys" + uuid)
                 .tableName(activekeysTableName)
@@ -275,6 +305,9 @@ public class SingleUseSignedUrlStack extends Stack {
         if (uuidObj != null) {
             String uuid = ((String) this.getNode().tryGetContext("UUID")).replace("-", "");
             try (PrintStream out = new PrintStream(new FileOutputStream("./lambda/uuid.txt"))) {
+                out.print(uuid);
+            }
+            try (PrintStream out = new PrintStream(new FileOutputStream("./applications/node-runtime/uuid.txt"))) {
                 out.print(uuid);
             }
             return uuid;

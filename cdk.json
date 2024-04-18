@@ -3,10 +3,10 @@
   "context": {
     "aws-cdk:enableDiffNoFail": "true",
     "@aws-cdk/core:stackRelativeExports": "true",
-    "keyPairId": "<KeyPairID>>",
-    "stackId": "single-use-stack-01031223",
+    "keyPairId": "KU2KYMOWULIMU",
+    "stackId": "single-use-stack-16041533",
     "secretName": "SignedURLPemCFKeyGroup",
     "region": "us-east-1",
-    "CFKeyGroupId": "<CFKeyGroupId>"
+    "CFKeyGroupId": "9b88ddda-cf10-4462-9ec8-8761b5b660ba"
   }
 }

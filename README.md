@@ -7,6 +7,10 @@ If the identifier is not found the system will perform a 302 redirect to a speci
 ### Architecture
 <img alt="Architecture" src="./images/singleusesignedurl.jpg" />
 
+### Demo
+
+![](./images/single-signed-url.gif)
+
 ### Constraints
 * CloudFront Triggers for Lambda Functions must execute in US East (N. Virginia) Region <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-requirements-limits.html#lambda-requirements-cloudfront-triggers">see requirements doc</a>
 
